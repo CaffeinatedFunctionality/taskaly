@@ -1,0 +1,250 @@
+'use client';
+
+import { useAuth } from '@/lib/authContext';
+import { useSubscription } from '@/lib/subscription';
+import { useState, useEffect } from 'react';
+import { 
+  Button, 
+  TextField, 
+  Box, 
+  Typography, 
+  Stack, 
+  Paper, 
+  CircularProgress,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+} from '@mui/material';
+import { subscribeToProjects, addProject, deleteProject, updateProject } from '@/lib/firestore';
+import { useParams } from 'next/navigation';
+
+export default function Dashboard() {
+  const { user } = useAuth();
+  const [projects, setProjects] = useState<any[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [open, setOpen] = useState<boolean>(false);
+  const [title, setTitle] = useState<string>('');
+  const [description, setDescription] = useState<string>('');
+  const [dueDate, setDueDate] = useState<string>('');
+  const [labels, setLabels] = useState<string>('');
+  const [submitLoading, setSubmitLoading] = useState<boolean>(false);
+  const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState<string>('');
+  const [editDescription, setEditDescription] = useState<string>('');
+  const [editDueDate, setEditDueDate] = useState<string>('');
+  const [editLabels, setEditLabels] = useState<string>('');
+
+  // Subscribe to projects in real-time
+  useEffect(() => {
+    const unsubscribe = subscribeToProjects((projectsData) => {
+      setProjects(projectsData);
+      setLoading(false);
+    });
+    return unsubscribe;
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitLoading(true);
+    try {
+      await addProject({
+        title,
+        description,
+        createdAt: new Date(),
+      });
+      setTitle('');
+      setDescription('');
+      setOpen(false);
+    } catch (error) {
+      console.error('Failed to add project:', error);
+    } finally {
+      setSubmitLoading(false);
+    }
+  };
+
+  const handleDelete = async (projectId: string) => {
+    try {
+      await deleteProject(projectId);
+    } catch (error) {
+      console.error('Failed to delete project:', error);
+    }
+  };
+
+  const handleEdit = (project: any) => {
+    setEditingProjectId(project.id);
+    setEditTitle(project.title || '');
+    setEditDescription(project.description || '');
+    setOpen(true);
+  };
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitLoading(true);
+    try {
+      if (editingProjectId) {
+        await updateProject(editingProjectId, {
+          title: editTitle,
+          description: editDescription,
+        });
+        setEditingProjectId(null);
+        setEditTitle('');
+        setEditDescription('');
+        setOpen(false);
+      }
+    } catch (error) {
+      console.error('Failed to update project:', error);
+    } finally {
+      setSubmitLoading(false);
+    }
+  };
+
+  if (!user) {
+    return <Box sx={{ textAlign: 'center', mt: 4 }}>
+      <Typography variant="h5">Please sign in to access the dashboard</Typography>
+      <Button variant="contained" href="/login">Sign In</Button>
+    </Box>;
+  }
+
+  return (
+    <Box sx={{ width: '100%', minHeight: '100vh', bgcolor: 'background.default', p: 4 }}>
+      <div>
+        <Typography variant="h4" align="center">
+          Project Management Dashboard
+        </Typography>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography variant="h6">My Projects</Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', px: 1, py: 0.5, borderRadius: 1, bgcolor: (subscription?.status === 'active' ? 'success.main' : 'error.light') }}>
+              <Typography variant="body2" sx={{ color: 'white', fontWeight: 500, mx: 1 }}>
+                {subscription?.status === 'active' ? 'Pro' : 'Free'}
+              </Typography>
+            </Box>
+          </Box>
+          <Button 
+            variant="contained" 
+            color="primary" 
+            onClick={() => setOpen(true)}
+            sx={{ mt: 2 }}
+          >
+            New Project
+          </Button>
+        </Box>
+        {loading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+            <CircularProgress />
+          </Box>
+        ) : projects.length === 0 ? (
+          <Box sx={{ textAlign: 'center', mt: 4 }}>
+            <Typography variant="body2">No projects yet. Create your first project!</Typography>
+          </Box>
+        ) : (
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mt: 2 }}>
+            {projects.map((project) => (
+              <Paper key={project.id} sx={{ p: 3, width: 300, boxShadow: 2 }}>
+                <Typography variant="h6" component="h2" onClick={() => handleEdit(project)}>
+                  {project.title}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {project.description || 'No description'}
+                </Typography>
+                <Typography variant="caption" color="text.disabled">
+                  Created: {new Date(project.createdAt?.seconds * 1000 || project.createdAt).toLocaleDateString()}
+                </Typography>
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
+                  <Button 
+                    variant="outlined" 
+                    size="small" 
+                    color="error" 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDelete(project.id);
+                    }}
+                  >
+                    Delete
+                  </Button>
+                </Box>
+              </Paper>
+            ))}
+          </Box>
+        )}
+      </div>
+
+      {/* Create/Edit Project Dialog */}
+      <Dialog open={open} onClose={() => {
+        setOpen(false);
+        setEditingProjectId(null);
+        setEditTitle('');
+        setEditDescription('');
+      }} maxWidth="sm" fullWidth>
+        <DialogTitle>{editingProjectId ? 'Edit Project' : 'Create New Project'}</DialogTitle>
+        <DialogContent sx={{ mt: 2 }}>
+          <Box sx={{ width: '100%' }}>
+            <form onSubmit={editingProjectId ? handleSaveEdit : handleSubmit}>
+            <TextField
+              label="Project Title"
+              value={editingProjectId ? editTitle : title}
+              onChange={(e) => {
+                if (editingProjectId) setEditTitle(e.target.value);
+                else setTitle(e.target.value);
+              }}
+              required
+              sx={{ mb: 2 }}
+              fullWidth
+            />
+            <TextField
+              label="Description"
+              value={editingProjectId ? editDescription : description}
+              onChange={(e) => {
+                if (editingProjectId) setEditDescription(e.target.value);
+                else setDescription(e.target.value);
+              }}
+              sx={{ mb: 2 }}
+              fullWidth
+              multiline
+              rows={4}
+            />
+            <TextField
+              label="Due Date (YYYY-MM-DD)"
+              type="date"
+              value={editingProjectId ? editDueDate : dueDate}
+              onChange={(e) => {
+                if (editingProjectId) setEditDueDate(e.target.value);
+                else setDueDate(e.target.value);
+              }}
+              sx={{ mb: 2 }}
+              fullWidth
+            />
+            <TextField
+              label="Labels (comma-separated)"
+              value={editingProjectId ? editLabels : labels}
+              onChange={(e) => {
+                if (editingProjectId) setEditLabels(e.target.value);
+                else setLabels(e.target.value);
+              }}
+              sx={{ mb: 2 }}
+              fullWidth
+            />
+            </form>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ mt: 2 }}>
+          <Button onClick={() => {
+            setOpen(false);
+            setEditingProjectId(null);
+            setEditTitle('');
+            setEditDescription('');
+          }}>Cancel</Button>
+          <Button 
+            variant="contained" 
+            color="primary" 
+            onClick={editingProjectId ? handleSaveEdit : handleSubmit} 
+            disabled={submitLoading || !(editingProjectId ? (editTitle?.trim() || editDescription?.trim()) : title.trim())}
+          >
+            {submitLoading ? (editingProjectId ? 'Updating...' : 'Creating...') : editingProjectId ? 'Save Changes' : 'Create Project'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
+  );
+}

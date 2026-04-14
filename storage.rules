@@ -1,0 +1,12 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Match files under projects/{projectId}/tasks/{taskId}/attachments/{fileName}
+    match /projects/{projectId}/tasks/{taskId}/attachments/{fileName} {
+      allow read, write: if request.auth != null && 
+                         // Optional: check that the user is a member of the project
+                         // For simplicity, we allow any authenticated user; can be tightened with Firestore check.
+                         true;
+    }
+  }
+}

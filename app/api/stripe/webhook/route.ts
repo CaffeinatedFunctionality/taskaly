@@ -1,0 +1,70 @@
+import { NextResponse } from 'next/server';
+import Stripe from 'stripe';
+import { adminDb } from '@/lib/firebaseAdmin';
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  apiVersion: '2026-03-25.dahlia',
+});
+
+const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
+
+export async function POST(request: Request) {
+  const buf = await request.text();
+  const sig = request.headers.get('stripe-signature');
+
+  let event: Stripe.Event;
+
+  try {
+    event = stripe.webhooks.constructEvent(buf, sig!, webhookSecret);
+  } catch (err: any) {
+    console.error(`⚠️  Webhook signature verification failed.`, err);
+    return NextResponse.json(
+      { error: `Webhook Error: ${err.message}` },
+      { status: 400 }
+    );
+  }
+
+  // Handle the event
+  switch (event.type) {
+    case 'checkout.session.completed':
+      const session = event.data.object as Stripe.Checkout.Session;
+      const userId = session.metadata?.userId;
+      if (userId) {
+        try {
+          // Update the user's subscription status in Firestore
+          await adminDb.collection('users').doc(userId).set(
+            {
+              subscription: {
+                status: session.status,
+                priceId: (session as any).line_items?.data?.[0]?.price?.id,
+                subscriptionId: session.subscription,
+                currentPeriodEnd: session.expires_at
+                  ? new Date(session.expires_at * 1000)
+                  : null,
+              },
+            },
+            { merge: true }
+          );
+          console.log(`✅ Subscription updated for user ${userId}`);
+        } catch (error) {
+          console.error('Error updating user subscription:', error);
+          return NextResponse.json({ error: 'Webhook handler failed' }, { status: 500 });
+        }
+      }
+      break;
+    case 'invoice.payment_succeeded':
+      // Handle subscription renewals
+      const invoice = event.data.object as Stripe.Invoice;
+      const subscriptionId = (invoice as any).subscription as string;
+      // We could update the subscription period here as well
+      break;
+    case 'customer.subscription.deleted':
+      const subscription = event.data.object as Stripe.Subscription;
+      // Optionally, set subscription status to inactive
+      break;
+    default:
+      console.log(`🤷‍♀️ Unhandled event type: ${event.type}`);
+  }
+
+  return NextResponse.json({ received: true });
+}

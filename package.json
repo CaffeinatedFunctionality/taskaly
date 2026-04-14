@@ -1,0 +1,46 @@
+{
+  "name": "project-management-manager",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "@capacitor-firebase/authentication": "^8.2.0",
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@firebase/app": "^0.14.11",
+    "@firebase/auth": "^1.13.0",
+    "@firebase/firestore": "^4.14.0",
+    "@firebase/storage": "^0.14.2",
+    "@mui/icons-material": "^9.0.0",
+    "@mui/lab": "^9.0.0-beta.2",
+    "@mui/material": "^9.0.0",
+    "@stripe/react-stripe-js": "^6.1.0",
+    "@stripe/stripe-js": "^9.1.0",
+    "firebase": "^12.12.0",
+    "firebase-admin": "^13.8.0",
+    "next": "16.2.3",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "react-flow": "^1.0.3",
+    "stripe": "^22.0.1"
+  },
+  "devDependencies": {
+    "@capacitor/app": "^8.1.0",
+    "@capacitor/cli": "^8.3.0",
+    "@capacitor/core": "^8.3.0",
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20.19.39",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.3",
+    "playwright": "^1.59.1",
+    "tailwindcss": "^4",
+    "typescript": "^5.9.3"
+  }
+}

@@ -1,0 +1,40 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Users collection: each user can read/write their own profile
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Projects collection
+    match /projects/{projectId} {
+      // Allow read if the user is a member (or owner) of the project
+      allow read: if request.auth != null && 
+                  (resource.data.ownerId == request.auth.uid ||
+                   request.auth.uid in resource.data.members);
+      
+      // Allow write (create/update/delete) only if the user is the project owner
+      allow create, update, delete: if request.auth != null && 
+                                    request.auth.uid == resource.data.ownerId;
+                                  
+      // Tasks subcollection under each project
+      match /tasks/{taskId} {
+        allow read: if request.auth != null && 
+                    (get(/databases/$(database)/documents/projects/$(projectId)).data.ownerId == request.auth.uid ||
+                     request.auth.uid in get(/databases/$(database)/documents/projects/$(projectId)).data.members);
+        allow create, update, delete: if request.auth != null && 
+                                      get(/databases/$(database)/documents/projects/$(projectId)).data.ownerId == request.auth.uid;
+      }
+      
+      // Workflows subcollection under each project (if we decide to scope workflows to project)
+      match /workflows/{workflowId} {
+        allow read: if request.auth != null && 
+                    (get(/databases/$(database)/documents/projects/$(projectId)).data.ownerId == request.auth.uid ||
+                     request.auth.uid in get(/databases/$(database)/documents/projects/$(projectId)).data.members);
+        allow create, update, delete: if request.auth != null && 
+                                      get(/databases/$(database)/documents/projects/$(projectId)).data.ownerId == request.auth.uid;
+      }
+    }
+  }
+}
