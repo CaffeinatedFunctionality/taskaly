@@ -1,0 +1,10 @@
+{
+  "appId": "com.yourdomain.taskaly",
+  "appName": "taskaly",
+  "webDir": ".next",
+  "bundledWebRuntime": false,
+  "server": {
+    "url": "http://localhost:3000",
+    "cleartext": true
+  }
+}
